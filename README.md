@@ -33,3 +33,7 @@ Everything else (display names, ping targets) is at the top of each section's `.
 Write `desktop/<Name>.qml` (a `ColumnLayout` starting with a `SectionHeader`) and add `<Name> {}` to the
 column in `desktop/shell.qml`. A separate window elsewhere on screen is a new folder with its own
 `shell.qml` and `<name>-widget.service`; `./install.sh` picks it up.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
