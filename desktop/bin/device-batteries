@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Battery levels of wireless devices that are not Bluetooth, as a JSON list.
+
+Logitech receiver devices come from `solaar show`, USB-dongle headsets from `headsetcontrol`.
+Each entry: {name, kind, via, online, battery (0-100 or null), charging}.
+"""
+import json
+import re
+import subprocess
+
+
+def run(cmd, timeout):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def logitech():
+    out = run(["solaar", "show"], 40)
+    receiver = (re.search(r"^(\S.*Receiver)\s*$", out, re.M) or [None, "Logitech receiver"])[1]
+    found = {}
+    # Devices are listed as "  1: MX Keys Mini" followed by an indented block.
+    for block in re.split(r"^(?=  \d+: )", out, flags=re.M)[1:]:
+        name = re.match(r"  \d+: (.+)", block).group(1).strip()
+        kind = re.search(r"Kind\s*:\s*(\w+)", block)
+        battery = re.search(r"Battery: (\d+)%, BatteryStatus\.(\w+)", block)
+        entry = {
+            "name": name,
+            "kind": kind.group(1) if kind else ("keyboard" if "Keys" in name else "mouse"),
+            "via": receiver,
+            "online": "Device is offline" not in block,
+            "battery": int(battery.group(1)) if battery else None,
+            "charging": bool(battery) and battery.group(2) in ("RECHARGING", "ALMOST_FULL", "FULL"),
+        }
+        # The same device can hold two slots on the receiver; keep the one that is on.
+        if name not in found or entry["online"]:
+            found[name] = entry
+    return list(found.values())
+
+
+def headsets():
+    try:
+        data = json.loads(run(["headsetcontrol", "-b", "-o", "json"], 15))
+    except ValueError:
+        return []
+    result = []
+    for d in data.get("devices", []):
+        b = d.get("battery") or {}
+        on = b.get("status") in ("BATTERY_AVAILABLE", "BATTERY_CHARGING")
+        result.append({
+            "name": d.get("product") or d.get("device"),
+            "kind": "headset",
+            "via": "USB dongle",
+            "online": on,
+            "battery": b.get("level") if on and b.get("level", -1) >= 0 else None,
+            "charging": b.get("status") == "BATTERY_CHARGING",
+        })
+    return result
+
+
+print(json.dumps(logitech() + headsets()))
