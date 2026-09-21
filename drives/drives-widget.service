@@ -1,0 +1,14 @@
+[Unit]
+Description=drives-widget — drive usage on the desktop, below all windows
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Environment=DRIVES_WIDGET_SCREEN=DP-2
+Environment=DRIVES_WIDGET_CORNER=top-right
+ExecStart=/usr/bin/qs -c drives-widget
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
