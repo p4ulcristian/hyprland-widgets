@@ -1,11 +1,12 @@
 [Unit]
-Description=desktop-widget — drives, internet and devices on the desktop, below all windows
+Description=desktop-widget — system, drives, internet and devices on the desktop, below all windows
 PartOf=graphical-session.target
 After=graphical-session.target
 
 [Service]
 Environment=WIDGETS_SCREEN=DP-2
 Environment=WIDGETS_CORNER=top-right
+Environment=WIDGETS_SYSTEM_CORNER=top-left
 ExecStart=/usr/bin/qs -c desktop-widget
 Restart=on-failure
 RestartSec=5

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# CPU, memory and graphics card readings for System.qml, as key=value lines.
+#   system-stats info   what the hardware is (read once)
+#   system-stats        how busy it is right now (read every couple of seconds)
+# Graphics: NVIDIA through nvidia-smi, AMD through sysfs.
+
+hwmon() {  # hwmon() k10temp coretemp ... -> path of the first sensor with one of these names
+  for h in /sys/class/hwmon/hwmon*; do
+    for n in "$@"; do [ "$(cat "$h/name" 2>/dev/null)" = "$n" ] && { echo "$h"; return; }; done
+  done
+}
+amd_gpu() { for d in /sys/class/drm/card*/device; do [ -e "$d/gpu_busy_percent" ] && { echo "$d"; return; }; done; }
+
+if [ "$1" = info ]; then
+  echo "cpu=$(sed -n 's/^model name\s*: //p' /proc/cpuinfo | head -1)"
+  echo "threads=$(nproc)"
+  # systemd's udev exposes the DMI memory table to users, no root needed (dmidecode would).
+  udevadm info -q property /sys/devices/virtual/dmi/id 2>/dev/null | awk -F= '
+    /^MEMORY_DEVICE_[0-9]+_SIZE=/ { n++ }
+    /^MEMORY_DEVICE_[0-9]+_TYPE=/ && !t { t = $2 }
+    /^MEMORY_DEVICE_[0-9]+_CONFIGURED_SPEED_MTS=/ && !s { s = $2 }
+    /^MEMORY_DEVICE_[0-9]+_MANUFACTURER=/ && !m { m = $2 }
+    END { print "ramtype=" t; print "ramspeed=" s; print "ramvendor=" m; print "sticks=" n }'
+  if command -v nvidia-smi >/dev/null; then
+    echo "gpu=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
+  elif d=$(amd_gpu); [ -n "$d" ]; then
+    echo "gpu=$(lspci -s "$(basename "$(readlink -f "$d")")" 2>/dev/null | sed 's/^[^:]*: *[^:]*: *//')"
+  fi
+  exit
+fi
+
+echo "stat=$(head -1 /proc/stat)"
+awk '/^MemTotal:/ { print "memtotal=" $2 * 1024 } /^MemAvailable:/ { print "memavail=" $2 * 1024 }' /proc/meminfo
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null |
+  awk '{ s += $1; n++ } END { if (n) print "mhz=" int(s / n / 1000) }'
+h=$(hwmon k10temp zenpower coretemp)
+[ -n "$h" ] && echo "cputemp=$(( $(cat "$h/temp1_input") / 1000 ))"
+
+if command -v nvidia-smi >/dev/null; then
+  nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw \
+    --format=csv,noheader,nounits | head -1 | tr -d ' ' | awk -F, '{
+      print "gpubusy=" $1; print "vramused=" $2 * 1048576; print "vramtotal=" $3 * 1048576
+      print "gputemp=" $4; print "gpuwatts=" int($5 + 0.5) }'
+elif d=$(amd_gpu); [ -n "$d" ]; then
+  echo "gpubusy=$(cat "$d/gpu_busy_percent")"
+  echo "vramused=$(cat "$d/mem_info_vram_used")"
+  echo "vramtotal=$(cat "$d/mem_info_vram_total")"
+  t=$(cat "$d"/hwmon/hwmon*/temp1_input 2>/dev/null | head -1); [ -n "$t" ] && echo "gputemp=$(( t / 1000 ))"
+  p=$(cat "$d"/hwmon/hwmon*/power1_average 2>/dev/null | head -1); [ -n "$p" ] && echo "gpuwatts=$(( p / 1000000 ))"
+fi

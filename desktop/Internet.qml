@@ -13,6 +13,9 @@ ColumnLayout {
   // The private tunnel to the gate; up means the gate answers through it.
   readonly property string vpnName: "WireGuard"
   readonly property string vpnHost: "10.99.0.10"
+  // The torrent client's API (qBittorrent), and the page the magnet icons open (qui).
+  readonly property string torrentUrl: "http://127.0.0.1:8085"
+  readonly property string torrentPage: "http://127.0.0.1:7476"
 
   property string iface: ""
   property string gateway: ""
@@ -25,6 +28,9 @@ ColumnLayout {
   property real up: 0
   property var history: []   // last 60 s of { d, u }
   property var last: null    // previous counter sample
+  property bool torrentUp: false  // the torrent client's web API answers
+  property var torrents: []       // active torrents, fastest upload first
+  property var topPeer: null      // { cc, speed } of whoever the fastest torrent sends most to
 
   function ms(v) { return v < 0 ? "no answer" : (v < 10 ? v.toFixed(1) : Math.round(v)) + " ms" }
   function rate(b) {
@@ -88,6 +94,36 @@ ColumnLayout {
   Timer { interval: 30000; running: true; repeat: true; onTriggered: info.running = true }
   Timer { interval: 600000; running: true; repeat: true; onTriggered: pub.running = true }
 
+  // Torrent client: what is moving, and to where. Upload speed of the fastest one's top peer.
+  Process {
+    id: torrentInfo
+    running: true
+    command: ["curl", "-s", "-m", "3", root.torrentUrl + "/api/v2/torrents/info?filter=active&sort=upspeed&reverse=true"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try { root.torrents = JSON.parse(text); root.torrentUp = true } catch (e) { root.torrents = []; root.torrentUp = false }
+        const t = root.torrents[0]
+        if (t && t.upspeed > 0) { torrentPeers.hash = t.hash; torrentPeers.running = true } else root.topPeer = null
+      }
+    }
+  }
+  Process {
+    id: torrentPeers
+    property string hash
+    command: ["curl", "-s", "-m", "3", root.torrentUrl + "/api/v2/sync/torrentPeers?hash=" + hash]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        let best = null
+        try { for (const p of Object.values(JSON.parse(text).peers || {})) if (!best || p.up_speed > best.up_speed) best = p } catch (e) {}
+        root.topPeer = best && best.up_speed > 0 ? { cc: (best.country_code || "").toUpperCase(), speed: best.up_speed } : null
+      }
+    }
+  }
+  Timer { interval: 5000; running: true; repeat: true; onTriggered: torrentInfo.running = true }
+  readonly property var seeding: torrents.filter(t => t.upspeed > 0)
+  readonly property var leeching: torrents.filter(t => t.progress < 1)
+  function openTorrents() { Quickshell.execDetached(["xdg-open", root.torrentPage]) }
+
   SectionHeader { text: "INTERNET"; Layout.bottomMargin: 10 }
 
   RowLayout {
@@ -110,6 +146,7 @@ ColumnLayout {
     Label { text: " " + root.rate(root.down); color: Theme.accent; font.pixelSize: 16; font.bold: true }
     Item { Layout.fillWidth: true }
     Label { text: " " + root.rate(root.up); color: Theme.fg; font.pixelSize: 16; font.bold: true }
+    IconButton { text: "\uf076"; onClicked: root.openTorrents() }   // magnet -> torrent client
   }
 
   // Last 60 seconds: download filled in the accent colour, upload as a plain line over it.
@@ -153,5 +190,22 @@ ColumnLayout {
   DetailRow {
     label: root.vpnName; value: root.vpnMs < 0 ? "down" : "up · " + root.ms(root.vpnMs)
     valueColor: root.vpnMs < 0 ? Theme.red : Theme.fg
+  }
+  DetailRow {
+    label: "Torrent"
+    value: !root.torrentUp ? "not running"
+         : [root.seeding.length ? root.seeding.length + " up · " + root.rate(root.seeding.reduce((a, t) => a + t.upspeed, 0)) : "",
+            root.leeching.length ? root.leeching.length + " down" : ""].filter(s => s).join(" · ") || "idle"
+    valueColor: root.torrentUp ? Theme.fg : Theme.soft
+    icon: "\uf076"; onClicked: root.openTorrents()
+  }
+  // The torrent uploading fastest, and the country of the peer taking most of it.
+  RowLayout {
+    Layout.fillWidth: true
+    visible: root.seeding.length > 0
+    spacing: 4
+    Label { Layout.fillWidth: true; text: root.seeding.length ? root.seeding[0].name : ""; elide: Text.ElideMiddle; color: Theme.soft }
+    Label { text: root.topPeer ? "→ " + (root.topPeer.cc ? root.topPeer.cc + " " : "") + root.rate(root.topPeer.speed) : "" }
+    Item { implicitWidth: 22 }  // lines up with the icon column above
   }
 }
