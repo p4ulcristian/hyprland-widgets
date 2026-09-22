@@ -113,4 +113,11 @@ ColumnLayout {
     rightText: [root.now.gputemp ? root.now.gputemp + "°C" : "", root.now.gpuwatts ? root.now.gpuwatts + " W" : ""].filter(s => s).join(" · ")
     rightColor: root.tempColor(+root.now.gputemp)
   }
+  // Video encoding runs on its own chip, so it gets its own line: busy while Graphics looks idle.
+  DetailRow {
+    visible: root.hasGpu && root.now.gpuenc !== undefined
+    label: "Video encoder"
+    value: (+root.now.gpuenc || 0) + "%"
+    valueColor: +root.now.gpuenc > 0 ? Theme.accent : Theme.soft
+  }
 }

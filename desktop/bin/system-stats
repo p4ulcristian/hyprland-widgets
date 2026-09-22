@@ -37,10 +37,11 @@ h=$(hwmon k10temp zenpower coretemp)
 [ -n "$h" ] && echo "cputemp=$(( $(cat "$h/temp1_input") / 1000 ))"
 
 if command -v nvidia-smi >/dev/null; then
-  nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw \
+  # The video encoder (NVENC) is its own block: busy converting video while utilization.gpu idles.
+  nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,utilization.encoder \
     --format=csv,noheader,nounits | head -1 | tr -d ' ' | awk -F, '{
       print "gpubusy=" $1; print "vramused=" $2 * 1048576; print "vramtotal=" $3 * 1048576
-      print "gputemp=" $4; print "gpuwatts=" int($5 + 0.5) }'
+      print "gputemp=" $4; print "gpuwatts=" int($5 + 0.5); print "gpuenc=" $6 }'
 elif d=$(amd_gpu); [ -n "$d" ]; then
   echo "gpubusy=$(cat "$d/gpu_busy_percent")"
   echo "vramused=$(cat "$d/mem_info_vram_used")"
