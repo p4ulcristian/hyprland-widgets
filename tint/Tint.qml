@@ -21,8 +21,8 @@ Item {
   readonly property int inset: 8               // from the window's top-right corner
   readonly property string colorsPath: Quickshell.env("HOME") + "/.config/tint/colors"
   readonly property string helper: Qt.resolvedUrl("tint-set").toString().replace("file://", "")
-  readonly property var defaults: ["#1e2233", "#2a1f33", "#331f2a", "#33261a", "#2c2e1a",
-                                   "#1c2e22", "#1a2e2e", "#1a2633", "#2b2b2b", "#3a1818"]
+  readonly property var defaults: ["#491e68", "#1c3260", "#12393d", "#113b1f", "#2e3710",
+                                   "#492d15", "#601c1c", "#5d1b37", "#302277", "#542718"]
 
   property var palette: defaults
   property var windows: ({})       // address -> { pid, x, y, w, h, screen }

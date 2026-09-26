@@ -1,13 +1,14 @@
 # Tint colors, in the order the row shows them (up to 10). One #rrggbb per line.
-# Bold but dark enough that light text stays readable on top.
+# Each is as dark as it needs to be for every Everforest text color to read at
+# least as well as on the theme's own background (worst text contrast >= 4.5:1).
 # Edits show the next time a row opens.
-#7b1fa2
-#1e4fd8
-#00838f
-#1b8a3a
-#8a8a00
-#c25e00
-#c62828
-#ad1457
-#4527a0
-#37474f
+#491e68
+#1c3260
+#12393d
+#113b1f
+#2e3710
+#492d15
+#601c1c
+#5d1b37
+#302277
+#542718
