@@ -1,0 +1,18 @@
+#!/bin/sh
+# tint-set <foot pid> <#rrggbb | reset>
+# Sets one foot window's background by writing the color escape into the
+# terminal it draws, from outside; whatever runs inside is left alone. It only
+# ever sets: asking the terminal for its color would type the answer into the
+# program running there.
+pid=$1 color=$2
+tty=
+for child in $(pgrep -P "$pid"); do
+  t=$(readlink "/proc/$child/fd/0" 2>/dev/null)
+  case $t in /dev/pts/*) tty=$t; break ;; esac
+done
+[ -n "$tty" ] || { echo "tint-set: no terminal found for foot $pid" >&2; exit 1; }
+case $color in
+  reset) printf '\033]111\007' > "$tty" ;;
+  \#??????) printf '\033]11;%s\007' "$color" > "$tty" ;;
+  *) echo "tint-set: want #rrggbb or reset, got '$color'" >&2; exit 1 ;;
+esac

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "p4ulcristian.tint",
+  "name": "Tint",
+  "version": "1.0.0",
+  "author": "p4ulcristian",
+  "description": "A color dot on every foot window; click it for a row of colors and pick one to change that terminal's background.",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Tint.qml"
+  }
+}
