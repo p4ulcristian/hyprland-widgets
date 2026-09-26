@@ -16,8 +16,8 @@ import qs.Commons
 Item {
   id: root
 
-  readonly property int dot: 20
-  readonly property int swatch: 34
+  readonly property int dot: 30
+  readonly property int swatch: 46
   readonly property int inset: 8               // from the window's top-right corner
   readonly property string colorsPath: Quickshell.env("HOME") + "/.config/tint/colors"
   readonly property string helper: Qt.resolvedUrl("tint-set").toString().replace("file://", "")
@@ -185,7 +185,7 @@ Item {
         Row {
           id: row
           anchors.centerIn: parent
-          spacing: 8
+          spacing: 10
 
           Repeater {
             model: root.palette.concat([""])      // "" = reset to theme
